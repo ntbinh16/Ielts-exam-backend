@@ -1,0 +1,29 @@
+variables:
+  IMAGE_TAG: latest
+  IMAGE_NAME_BACKEND: ielts-exam-backend
+
+stages:
+  - build
+  - deploy
+
+build:
+  stage: build
+  before_script:
+    - docker login -u $REGISTRY_USER -p $REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker pull $IMAGE_NAME_BACKEND:$IMAGE_TAG || true
+    - docker build --cache-from $IMAGE_NAME_BACKEND:$IMAGE_TAG -t $IMAGE_NAME_BACKEND:$CI_COMMIT_SHA -t $IMAGE_NAME_BACKEND:$IMAGE_TAG .
+    - docker push $IMAGE_NAME_BACKEND:$CI_COMMIT_SHA
+    - docker push $IMAGE_NAME_BACKEND:$IMAGE_TAG
+  only:
+    - staging
+
+deploy:
+  stage: deploy
+  script:
+    - ssh root@$SERVER_TESTING "
+      docker login -u $REGISTRY_USER -p $REGISTRY_PASSWORD $CI_REGISTRY &&
+      docker pull $IMAGE_NAME_BACKEND:$IMAGE_TAG &&
+      docker run -dp 8081:3000 $IMAGE_NAME_BACKEND:$IMAGE_TAG "
+  only:
+    - staging
